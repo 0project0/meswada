@@ -69,6 +69,7 @@
   .prod img,.prod .noimg{width:52px;height:52px;border-radius:11px;object-fit:cover;background:var(--soft);flex-shrink:0;}
   .prod .meta{flex:1;min-width:0;}
   .prod .n{font-weight:700;font-size:13.5px;}
+  .clicks{display:inline-block;font-size:11px;font-weight:700;color:var(--accent);background:var(--panel-hi);padding:2px 9px;border-radius:100px;margin-inline-start:4px;}
   .prod .l{font-size:11px;color:var(--text-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:ltr;text-align:right;margin-top:2px;}
   .prod .acts{display:flex;gap:6px;flex-shrink:0;}
   .mini{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;color:var(--text-soft);transition:all .15s ease;}
@@ -128,6 +129,7 @@ let products = [];
 let editingId = null;
 let pendingImage = { url:'' };
 let pendingAvatar = { url:'' };
+let sortByClicks = false;
 
 const $ = id => document.getElementById(id);
 const esc = s => (s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -265,11 +267,19 @@ function render(){
     </div>
 
     <div class="panel">
-      <div class="phead">المنتجات <span class="count">${products.length}</span></div>
-      ${products.length ? products.map(row).join('') : `<div class="empty">لسه مفيش منتجات</div>`}
+      <div class="phead">
+        <span>المنتجات <span class="count">${products.length}</span> · <span class="count">إجمالي الضغطات: ${products.reduce((s,p)=>s+(p.clicks||0),0)}</span></span>
+        <button class="mini ${sortByClicks?'on':''}" id="sortToggle">${sortByClicks?'ترتيب حسب الأحدث':'ترتيب حسب الأكثر ضغطاً'}</button>
+      </div>
+      ${products.length ? sortedProducts().map(row).join('') : `<div class="empty">لسه مفيش منتجات</div>`}
     </div>
   `;
   bind();
+}
+
+function sortedProducts(){
+  if(!sortByClicks) return products;
+  return [...products].sort((a,b)=>(b.clicks||0)-(a.clicks||0));
 }
 
 function row(p){
@@ -277,7 +287,7 @@ function row(p){
     <div class="prod">
       ${p.image ? `<img src="${esc(p.image)}" alt="">` : `<div class="noimg"></div>`}
       <div class="meta">
-        <div class="n">${esc(p.name)}</div>
+        <div class="n">${esc(p.name)} <span class="clicks">${p.clicks||0} ضغطة</span></div>
         <div class="l">${esc(p.link)}</div>
       </div>
       <div class="acts">
@@ -371,6 +381,7 @@ function wireUpload(dropId, fileId, barId, innerId, onDone){
 
 function bind(){
   $('logoutBtn').onclick = () => signOut(auth);
+  if($('sortToggle')) $('sortToggle').onclick = () => { sortByClicks = !sortByClicks; render(); };
   if($('cancelEdit')) $('cancelEdit').onclick = () => { editingId=null; pendingImage={url:''}; render(); };
 
   $('saveToken').onclick = () => {
