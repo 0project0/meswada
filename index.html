@@ -70,7 +70,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
-import { getFirestore, doc, getDoc, collection, getDocs, query, orderBy }
+import { getFirestore, doc, getDoc, collection, getDocs, query, orderBy, updateDoc, increment }
   from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -118,6 +118,7 @@ async function load(){
           : `<div class="msg">لسه مفيش منتجات مضافة</div>`}
       </div>
     `;
+    trackClicks();
   }catch(err){
     console.error(err);
     shell.innerHTML = `<div class="msg">مش قادرين نحمّل المنتجات دلوقتي.<br>جرّب تعمل تحديث للصفحة.</div>`;
@@ -135,8 +136,19 @@ function card(p, i){
         ${p.desc ? `<div class="desc">${esc(p.desc)}</div>`:''}
         ${p.code ? `<div class="code">كود: ${esc(p.code)}</div>`:''}
       </div>
-      <a href="${esc(p.link)}" target="_blank" rel="noopener sponsored"><button class="go">شوفه</button></a>
+      <a href="${esc(p.link)}" target="_blank" rel="noopener sponsored" data-id="${esc(p.id)}" class="go-link"><button class="go">شوفه</button></a>
     </div>`;
+}
+
+function trackClicks(){
+  document.querySelectorAll('.go-link').forEach(a => {
+    a.addEventListener('click', () => {
+      const id = a.getAttribute('data-id');
+      if(!id) return;
+      // fire-and-forget: don't block the navigation
+      try{ updateDoc(doc(db,'products',id), { clicks: increment(1) }); }catch(e){}
+    });
+  });
 }
 
 load();
