@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>روابطي</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=El+Messiri:wght@600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F4F5F7; --panel:#FFFFFF; --panel-hi:#EDEFF3; --soft:#E4E7EC;
+    --accent:#3E5C76; --accent-deep:#2C4256; --gold:#B08A3E;
+    --text:#26303B; --text-soft:#6B7686; --line:rgba(38,48,59,0.11); --radius:18px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);color:var(--text);
+    font-family:'Tajawal',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased;
+    background-image:radial-gradient(circle at 50% 0%, rgba(62,92,118,0.06), transparent 55%);
+  }
+  @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important;}}
+  a{color:inherit;text-decoration:none;}
+  button{font-family:inherit;cursor:pointer;}
+
+  .shell{max-width:520px;margin:0 auto;padding:34px 20px 60px;min-height:100vh;}
+  .head{display:flex;flex-direction:column;align-items:center;gap:12px;}
+  .avatar{width:100px;height:100px;border-radius:50%;object-fit:cover;border:3px solid var(--accent);}
+  .avatar-fallback{width:100px;height:100px;border-radius:50%;background:var(--soft);border:3px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:34px;}
+  h1.title{font-family:'El Messiri',sans-serif;font-size:25px;font-weight:700;margin:4px 0 0;text-align:center;color:var(--accent-deep);}
+  p.bio{font-size:14px;color:var(--text-soft);text-align:center;margin:0;max-width:350px;line-height:1.75;}
+  .socials{display:flex;gap:9px;justify-content:center;margin-top:6px;}
+  .chip{font-size:12.5px;padding:7px 16px;border-radius:9px;background:var(--soft);color:var(--accent-deep);border:1px solid transparent;font-weight:600;transition:all .15s ease;}
+  .chip:hover{background:var(--accent);color:#fff;}
+
+  .rule{display:flex;align-items:center;gap:12px;margin:34px 0 18px;color:var(--text-soft);font-size:12px;}
+  .rule::before,.rule::after{content:"";flex:1;height:1px;background:var(--line);}
+
+  .list{display:flex;flex-direction:column;gap:13px;}
+  .item{
+    display:flex;gap:14px;align-items:center;background:var(--panel);
+    border:1px solid var(--line);border-radius:var(--radius);padding:14px;
+    position:relative;overflow:hidden;
+    transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    animation:rise .35s ease backwards;
+  }
+  @keyframes rise{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:none;}}
+  .item:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(44,66,86,0.09);}
+  .item.pick{border-color:var(--accent);background:linear-gradient(135deg,var(--panel-hi),var(--panel));}
+  .item.pick::before{content:"";position:absolute;top:0;bottom:0;right:0;width:3px;background:var(--accent);}
+  .thumb{width:66px;height:66px;border-radius:13px;object-fit:cover;flex-shrink:0;background:var(--soft);}
+  .info{flex:1;min-width:0;}
+  .pick-tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:0.5px;color:var(--gold);margin-bottom:3px;}
+  .name{font-weight:700;font-size:15px;line-height:1.4;}
+  .desc{font-size:12.5px;color:var(--text-soft);margin-top:3px;line-height:1.55;}
+  .code{display:inline-block;margin-top:7px;font-size:11px;background:var(--soft);color:var(--accent-deep);padding:4px 12px;border-radius:100px;font-weight:700;}
+  .go{flex-shrink:0;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:11px 18px;font-size:13px;font-weight:700;white-space:nowrap;transition:background .15s ease;box-shadow:0 4px 12px rgba(62,92,118,0.22);}
+  .go:hover{background:var(--accent-deep);}
+  .go:focus-visible,.chip:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
+
+  .msg{text-align:center;color:var(--text-soft);font-size:14px;padding:50px 20px;line-height:1.8;}
+  .skel{height:96px;border-radius:var(--radius);background:linear-gradient(90deg,var(--panel),var(--soft),var(--panel));background-size:200% 100%;animation:shim 1.4s infinite;}
+  @keyframes shim{from{background-position:200% 0;}to{background-position:-200% 0;}}
+</style>
+</head>
+<body>
+<div class="shell" id="shell">
+  <div class="list"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+import { getFirestore, doc, getDoc, collection, getDocs, query, orderBy }
+  from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAVJCeykaehCmVNia_ibBXZVtWKWFpOeLg",
+  authDomain: "bio-link-mos.firebaseapp.com",
+  projectId: "bio-link-mos",
+  storageBucket: "bio-link-mos.firebasestorage.app",
+  messagingSenderId: "152792384264",
+  appId: "1:152792384264:web:ed89bb8012bfa2266822bd",
+  measurementId: "G-3N6HWSW6N0"
+};
+
+const db = getFirestore(initializeApp(firebaseConfig));
+const esc = s => (s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+async function load(){
+  const shell = document.getElementById('shell');
+  try{
+    const [sSnap, pSnap] = await Promise.all([
+      getDoc(doc(db,'config','settings')),
+      getDocs(query(collection(db,'products'), orderBy('createdAt','desc')))
+    ]);
+
+    const s = sSnap.exists() ? sSnap.data() : { title:'اسم الحساب', bio:'', avatar:'', tiktok:'', instagram:'' };
+    const items = [];
+    pSnap.forEach(d => items.push({ id:d.id, ...d.data() }));
+    const ordered = [...items.filter(p=>p.featured), ...items.filter(p=>!p.featured)];
+
+    shell.innerHTML = `
+      <div class="head">
+        ${s.avatar ? `<img class="avatar" src="${esc(s.avatar)}" alt="">`
+                   : `<div class="avatar-fallback">✦</div>`}
+        <h1 class="title">${esc(s.title)}</h1>
+        ${s.bio ? `<p class="bio">${esc(s.bio)}</p>` : ''}
+        <div class="socials">
+          ${s.tiktok ? `<a class="chip" href="${esc(s.tiktok)}" target="_blank" rel="noopener">تيك توك</a>`:''}
+          ${s.instagram ? `<a class="chip" href="${esc(s.instagram)}" target="_blank" rel="noopener">انستجرام</a>`:''}
+        </div>
+      </div>
+
+      <div class="rule">اللي بنصح بيه</div>
+
+      <div class="list">
+        ${ordered.length ? ordered.map(card).join('')
+          : `<div class="msg">لسه مفيش منتجات مضافة</div>`}
+      </div>
+    `;
+  }catch(err){
+    console.error(err);
+    shell.innerHTML = `<div class="msg">مش قادرين نحمّل المنتجات دلوقتي.<br>جرّب تعمل تحديث للصفحة.</div>`;
+  }
+}
+
+function card(p, i){
+  return `
+    <div class="item ${p.featured?'pick':''}" style="animation-delay:${i*0.05}s">
+      ${p.image ? `<img class="thumb" src="${esc(p.image)}" alt="" loading="lazy">`
+                : `<div class="thumb"></div>`}
+      <div class="info">
+        ${p.featured ? `<div class="pick-tag">✦ توصية اليوم</div>`:''}
+        <div class="name">${esc(p.name)}</div>
+        ${p.desc ? `<div class="desc">${esc(p.desc)}</div>`:''}
+        ${p.code ? `<div class="code">كود: ${esc(p.code)}</div>`:''}
+      </div>
+      <a href="${esc(p.link)}" target="_blank" rel="noopener sponsored"><button class="go">شوفه</button></a>
+    </div>`;
+}
+
+load();
+</script>
+</body>
+</html>
