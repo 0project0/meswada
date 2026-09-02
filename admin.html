@@ -38,13 +38,16 @@
 
   .field{margin-bottom:15px;}
   .field label{display:block;font-size:12.5px;font-weight:700;color:var(--accent-deep);margin-bottom:7px;}
-  .field input,.field textarea{
+  .field input,.field textarea,.field select{
     width:100%;padding:12px 14px;border-radius:11px;border:1.5px solid var(--line);
     font-family:'Tajawal',sans-serif;font-size:14px;background:var(--field);color:var(--text);
     transition:border-color .15s ease;
   }
   .field input::placeholder,.field textarea::placeholder{color:#A6AEBB;}
-  .field input:focus,.field textarea:focus{outline:none;border-color:var(--accent);background:#fff;}
+  .field input:focus,.field textarea:focus,.field select:focus{outline:none;border-color:var(--accent);background:#fff;}
+  .catrow{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:8px;background:var(--field);}
+  .catrow .cn{flex:1;font-weight:700;font-size:13.5px;}
+  .catrow input{flex:1;padding:8px 10px;border-radius:8px;border:1.5px solid var(--line);font-family:'Tajawal',sans-serif;font-size:13px;background:#fff;}
   .field textarea{resize:vertical;min-height:60px;}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:13px;}
   @media(max-width:560px){.grid2{grid-template-columns:1fr;}}
@@ -125,6 +128,7 @@ const setToken = t => localStorage.setItem(TOKEN_KEY, t);
 const clearToken = () => localStorage.removeItem(TOKEN_KEY);
 
 let settings = { title:'', bio:'', avatar:'', tiktok:'', instagram:'' };
+let categories = []; // [{id, name}]
 let products = [];
 let editingId = null;
 let pendingImage = { url:'' };
@@ -168,6 +172,7 @@ async function boot(){
       getDocs(query(collection(db,'products'), orderBy('createdAt','desc')))
     ]);
     if(sSnap.exists()) settings = { ...settings, ...sSnap.data() };
+    categories = Array.isArray(settings.categories) ? settings.categories : [];
     products = [];
     pSnap.forEach(d => products.push({ id:d.id, ...d.data() }));
     render();
@@ -235,11 +240,29 @@ function render(){
     </div>
 
     <div class="panel">
+      <div class="phead">الأصناف <span class="count">${categories.length}</span></div>
+      <div class="hint" style="margin-bottom:12px">الأصناف بتظهر في الصفحة العامة كتبويبات المستخدم بيفتحها. أي منتج من غير صنف بيظهر تحت "غير مصنّف".</div>
+      <div id="catList">
+        ${categories.length ? categories.map(catRow).join('') : `<div class="empty" style="padding:14px">لسه مفيش أصناف</div>`}
+      </div>
+      <div class="field" style="margin-top:12px"><label>إضافة صنف جديد</label><input id="newCat" placeholder="مثال: منتجات، مواقع، أدوات"></div>
+      <button class="btn" id="addCat">إضافة الصنف</button>
+    </div>
+
+    <div class="panel">
       <div class="phead">${ed ? 'تعديل المنتج' : 'إضافة منتج جديد'}</div>
       ${ed ? `<div class="editing"><span>بتعدّل: ${esc(ed.name)}</span><button class="mini" id="cancelEdit">إلغاء</button></div>`:''}
 
       <div class="field"><label>اسم المنتج *</label><input id="p-name" value="${esc(ed?.name)}" placeholder="اسم المنتج"></div>
       <div class="field"><label>وصف قصير</label><input id="p-desc" value="${esc(ed?.desc)}" placeholder="ليه بتنصح بيه"></div>
+
+      <div class="field">
+        <label>الصنف</label>
+        <select id="p-cat">
+          <option value="">— غير مصنّف —</option>
+          ${categories.map(c=>`<option value="${esc(c.id)}" ${ed?.category===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}
+        </select>
+      </div>
 
       <div class="field">
         <label>صورة المنتج</label>
@@ -282,13 +305,34 @@ function sortedProducts(){
   return [...products].sort((a,b)=>(b.clicks||0)-(a.clicks||0));
 }
 
+async function persistCategories(){
+  settings.categories = categories;
+  await setDoc(doc(db,'config','settings'), settings, { merge: true });
+}
+
+function catName(id){
+  const c = categories.find(x=>x.id===id);
+  return c ? c.name : 'غير مصنّف';
+}
+
+function catRow(c){
+  return `
+    <div class="catrow" data-cat="${esc(c.id)}">
+      <span class="cn" data-name>${esc(c.name)}</span>
+      <div class="acts">
+        <button class="mini" data-cat-edit="${esc(c.id)}">تعديل</button>
+        <button class="mini danger" data-cat-del="${esc(c.id)}">حذف</button>
+      </div>
+    </div>`;
+}
+
 function row(p){
   return `
     <div class="prod">
       ${p.image ? `<img src="${esc(p.image)}" alt="">` : `<div class="noimg"></div>`}
       <div class="meta">
         <div class="n">${esc(p.name)} <span class="clicks">${p.clicks||0} ضغطة</span></div>
-        <div class="l">${esc(p.link)}</div>
+        <div class="l">${esc(catName(p.category))} · ${esc(p.link)}</div>
       </div>
       <div class="acts">
         <button class="mini ${p.featured?'on':''}" data-feat="${p.id}">${p.featured?'مميّز':'تمييز'}</button>
@@ -382,6 +426,48 @@ function wireUpload(dropId, fileId, barId, innerId, onDone){
 function bind(){
   $('logoutBtn').onclick = () => signOut(auth);
   if($('sortToggle')) $('sortToggle').onclick = () => { sortByClicks = !sortByClicks; render(); };
+
+  // ---- categories ----
+  if($('addCat')) $('addCat').onclick = async () => {
+    const name = $('newCat').value.trim();
+    if(!name){ toast('اكتب اسم الصنف', true); return; }
+    const id = 'c' + Date.now();
+    categories = [...categories, { id, name }];
+    await persistCategories();
+    toast('اتضاف الصنف ✓');
+    render();
+  };
+
+  document.querySelectorAll('[data-cat-del]').forEach(b => b.onclick = async () => {
+    const id = b.getAttribute('data-cat-del');
+    const c = categories.find(x=>x.id===id);
+    if(!confirm(`تمسح صنف "${c?.name}"؟ المنتجات اللي تحته هتبقى غير مصنّفة.`)) return;
+    categories = categories.filter(x=>x.id!==id);
+    await persistCategories();
+    toast('اتمسح الصنف');
+    render();
+  });
+
+  document.querySelectorAll('[data-cat-edit]').forEach(b => b.onclick = () => {
+    const id = b.getAttribute('data-cat-edit');
+    const rowEl = b.closest('.catrow');
+    const nameEl = rowEl.querySelector('[data-name]');
+    const current = categories.find(x=>x.id===id)?.name || '';
+    nameEl.innerHTML = `<input value="${esc(current)}" />`;
+    const input = nameEl.querySelector('input');
+    input.focus();
+    const save = async () => {
+      const v = input.value.trim();
+      if(v){
+        categories = categories.map(x=> x.id===id ? {...x, name:v} : x);
+        await persistCategories();
+        toast('اتعدّل الصنف ✓');
+      }
+      render();
+    };
+    input.onkeydown = e => { if(e.key==='Enter') save(); };
+    input.onblur = save;
+  });
   if($('cancelEdit')) $('cancelEdit').onclick = () => { editingId=null; pendingImage={url:''}; render(); };
 
   $('saveToken').onclick = () => {
@@ -408,7 +494,8 @@ function bind(){
       bio: $('s-bio').value.trim(),
       avatar: pendingAvatar.url || settings.avatar || '',
       tiktok: $('s-tiktok').value.trim(),
-      instagram: $('s-insta').value.trim()
+      instagram: $('s-insta').value.trim(),
+      categories: categories
     };
     try{
       await setDoc(doc(db,'config','settings'), settings);
@@ -429,6 +516,7 @@ function bind(){
       name, link,
       desc: $('p-desc').value.trim(),
       code: $('p-code').value.trim(),
+      category: $('p-cat').value,
       featured: $('p-feat').checked,
       image: pendingImage.url || ed?.image || ''
     };
