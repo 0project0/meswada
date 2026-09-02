@@ -37,6 +37,26 @@
   .rule::before,.rule::after{content:"";flex:1;height:1px;background:var(--line);}
 
   .list{display:flex;flex-direction:column;gap:13px;}
+
+  /* category accordion */
+  .cats{display:flex;flex-direction:column;gap:12px;}
+  .cat{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);overflow:hidden;transition:border-color .15s ease;}
+  .cat.open{border-color:var(--accent);}
+  .cat-head{
+    width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;
+    background:transparent;padding:16px 18px;font-family:'Tajawal',sans-serif;
+    font-size:15px;font-weight:700;color:var(--accent-deep);text-align:right;
+  }
+  .cat-head:hover{background:var(--panel-hi);}
+  .cat-head:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}
+  .cat-name{flex:1;}
+  .cat-meta{display:flex;align-items:center;gap:10px;}
+  .cat-count{font-size:12px;font-weight:700;color:var(--accent);background:var(--panel-hi);padding:2px 10px;border-radius:100px;}
+  .chev{font-size:18px;color:var(--text-soft);transition:transform .2s ease;line-height:1;}
+  .cat.open .chev{transform:rotate(180deg);}
+  .cat-body{max-height:0;overflow:hidden;transition:max-height .3s ease;}
+  .cat.open .cat-body{max-height:4000px;}
+  .cat-body .list{padding:4px 12px 14px;}
   .item{
     display:flex;gap:14px;align-items:center;background:var(--panel);
     border:1px solid var(--line);border-radius:var(--radius);padding:14px;
@@ -113,16 +133,54 @@ async function load(){
 
       <div class="rule">اللي بنصح بيه</div>
 
-      <div class="list">
-        ${ordered.length ? ordered.map(card).join('')
-          : `<div class="msg">لسه مفيش منتجات مضافة</div>`}
+      <div class="cats" id="cats">
+        ${renderCategories(s.categories || [], ordered)}
       </div>
     `;
     trackClicks();
+    wireAccordion();
   }catch(err){
     console.error(err);
     shell.innerHTML = `<div class="msg">مش قادرين نحمّل المنتجات دلوقتي.<br>جرّب تعمل تحديث للصفحة.</div>`;
   }
+}
+
+function renderCategories(categories, items){
+  // build groups: defined categories in order, then leftover as "غير مصنّف"
+  const groups = [];
+  const usedIds = new Set();
+  categories.forEach(cat => {
+    const list = items.filter(p => (p.category||'') === cat.id);
+    list.forEach(p => usedIds.add(p.id));
+    if(list.length) groups.push({ name: cat.name, items: list });
+  });
+  const leftover = items.filter(p => !usedIds.has(p.id));
+  if(leftover.length) groups.push({ name: 'غير مصنّف', items: leftover });
+
+  if(!groups.length) return `<div class="msg">لسه مفيش منتجات مضافة</div>`;
+
+  return groups.map((g, gi) => `
+    <div class="cat">
+      <button class="cat-head" data-cat="${gi}">
+        <span class="cat-name">${esc(g.name)}</span>
+        <span class="cat-meta"><span class="cat-count">${g.items.length}</span><span class="chev">⌄</span></span>
+      </button>
+      <div class="cat-body" id="catbody-${gi}">
+        <div class="list">
+          ${g.items.map((p,i)=>card(p,i)).join('')}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function wireAccordion(){
+  document.querySelectorAll('.cat-head').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const cat = btn.parentElement;
+      cat.classList.toggle('open');
+    });
+  });
 }
 
 function card(p, i){
